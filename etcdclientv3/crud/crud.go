@@ -98,7 +98,7 @@ func main() {
 		fmt.Printf("\n")
 	}
 
-	if resp, err := GET(cli, "/", clientv3.WithPrefix()); err != nil {
+	if resp, err := GET(cli, "/dir", clientv3.WithPrefix()); err != nil {
 		glog.Errorf(err.Error())
 	} else {
 		PrintGetRespValue(resp)

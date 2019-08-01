@@ -113,7 +113,13 @@ func main() {
 
 	stop := make(chan struct{})
 	store, controller := cache.NewInformer(listwatch, &core_v1.Endpoints{}, 0*time.Second, handler)
-	controller.Run(stop)
+	go controller.Run(stop)
+
+	time.Sleep(5 * time.Second)
+	fmt.Printf("keys\n")
+	for _, key := range store.ListKeys() {
+		fmt.Printf("key: %s\n", key)
+	}
 
 	//Set signal
 	signalChan := make(chan os.Signal)
