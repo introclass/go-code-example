@@ -3,7 +3,6 @@
 // Copyright (C) 2018 lijiaocn <lijiaocn@foxmail.com>
 //
 // Distributed under terms of the GPL license.
-
 package main
 
 import (
@@ -28,6 +27,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+type ADDR struct {
+	Address string
+	Port    uint32
+}
+
 type NodeConfig struct {
 	node      *core.Node
 	endpoints []cache.Resource //[]*api_v2.ClusterLoadAssignment
@@ -41,38 +45,33 @@ func (n NodeConfig) ID(node *core.Node) string {
 	return node.GetId()
 }
 
-func ADD_Cluster_With_Static_Endpoint(n *NodeConfig) {
+func Cluster_STATIC(name string, addrs []ADDR) *api_v2.Cluster {
+	lbEndpoints := make([]*endpoint.LbEndpoint, 0)
 
-	// 每个 route 对应一个或一组 cluster，可以设置 cluster 的权重
-	// 每个 cluster 包含多个 endpoints 分组(locality)，可以设置分组的权重
-	// 每个 endpoints 分组内包含多个 endpoint，可以设置 endpoint 的权重
-
-	timeout := 1 * time.Second
-
-	// endpoint 地址
-	hostIdentifier := &endpoint.LbEndpoint_Endpoint{
-		Endpoint: &endpoint.Endpoint{
-			Address: &core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						Protocol: core.TCP,
-						Address:  "172.16.129.26",
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: 80,
+	for _, addr := range addrs {
+		// endpoint 地址
+		hostIdentifier := &endpoint.LbEndpoint_Endpoint{
+			Endpoint: &endpoint.Endpoint{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							Protocol: core.TCP,
+							Address:  addr.Address,
+							PortSpecifier: &core.SocketAddress_PortValue{
+								PortValue: addr.Port,
+							},
 						},
 					},
 				},
 			},
-		},
-	}
+		}
 
-	// 一个 endpoint
-	lbEndpoint := &endpoint.LbEndpoint{
-		HostIdentifier: hostIdentifier,
-	}
+		lbEndpoint := &endpoint.LbEndpoint{
+			HostIdentifier: hostIdentifier,
+		}
 
-	lbEndpoints := make([]*endpoint.LbEndpoint, 0)
-	lbEndpoints = append(lbEndpoints, lbEndpoint)
+		lbEndpoints = append(lbEndpoints, lbEndpoint)
+	}
 
 	// endpoints 分组，由多个 endpoint 组成
 	localityLbEndpoints := &endpoint.LocalityLbEndpoints{
@@ -84,14 +83,16 @@ func ADD_Cluster_With_Static_Endpoint(n *NodeConfig) {
 
 	//cluster 的多个 endpoints 分组
 	clusterLoadAssignment := &api_v2.ClusterLoadAssignment{
-		ClusterName: "none",
+		ClusterName: name, // endpoint 是静态配置，clustername可以为空
 		Endpoints:   endpoints,
 	}
 
+	timeout := 1 * time.Second
+
 	// 使用静态 endpoints 的 cluster，类型为 v2.Cluster_STATIC
 	cluster := &api_v2.Cluster{
-		Name:        "cluster_with_static_endpoint",
-		AltStatName: "cluster_with_static_endpoint",
+		Name:        name,
+		AltStatName: name,
 		ClusterDiscoveryType: &api_v2.Cluster_Type{
 			Type: api_v2.Cluster_STATIC,
 		},
@@ -102,37 +103,37 @@ func ADD_Cluster_With_Static_Endpoint(n *NodeConfig) {
 		LoadAssignment:                clusterLoadAssignment,
 	}
 
-	n.clusters = append(n.clusters, cluster)
+	return cluster
 }
 
-func ADD_Cluster_With_Dynamic_Endpoint(n *NodeConfig) {
+func EDS(cluster string, addrs []ADDR) *api_v2.ClusterLoadAssignment {
 
-	timeout := 1 * time.Second
+	lbEndpoints := make([]*endpoint.LbEndpoint, 0)
 
-	// endpoint 地址
-	hostIdentifier := &endpoint.LbEndpoint_Endpoint{
-		Endpoint: &endpoint.Endpoint{
-			Address: &core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						Protocol: core.TCP,
-						Address:  "182.16.129.26",
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: 80,
+	for _, addr := range addrs {
+		// endpoint 地址
+		hostIdentifier := &endpoint.LbEndpoint_Endpoint{
+			Endpoint: &endpoint.Endpoint{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							Protocol: core.TCP,
+							Address:  addr.Address,
+							PortSpecifier: &core.SocketAddress_PortValue{
+								PortValue: addr.Port,
+							},
 						},
 					},
 				},
 			},
-		},
-	}
+		}
 
-	// 一个 endpoints
-	lbEndpoint := &endpoint.LbEndpoint{
-		HostIdentifier: hostIdentifier,
-	}
+		lbEndpoint := &endpoint.LbEndpoint{
+			HostIdentifier: hostIdentifier,
+		}
 
-	lbEndpoints := make([]*endpoint.LbEndpoint, 0)
-	lbEndpoints = append(lbEndpoints, lbEndpoint)
+		lbEndpoints = append(lbEndpoints, lbEndpoint)
+	}
 
 	// 一个 endpoint 分组
 	localityLbEndpoint := &endpoint.LocalityLbEndpoints{
@@ -156,7 +157,7 @@ func ADD_Cluster_With_Dynamic_Endpoint(n *NodeConfig) {
 
 	// cluster 的多个 endpoints 分组
 	point := &api_v2.ClusterLoadAssignment{
-		ClusterName: "cluster_with_dynamic_endpoint",
+		ClusterName: cluster,
 		Endpoints:   localityLbEndpoints,
 		Policy: &api_v2.ClusterLoadAssignment_Policy{
 			DropOverloads: dropOverLoads,
@@ -166,20 +167,24 @@ func ADD_Cluster_With_Dynamic_Endpoint(n *NodeConfig) {
 		},
 	}
 
-	// 写入 eds，clsuter 从 eds 中获取对应的 endpoints
-	n.endpoints = append(n.endpoints, point)
+	return point
+}
 
-	// grpc 服务地址，这里的 xds_cluster 是在 envoy 中配置的 cluster，用于发现 endpoints
-	grpcService := &core.GrpcService{
-		TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-			EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-				ClusterName: "xds_cluster",
-			},
-		},
-	}
+func Cluster_EDS(name string, edsCluster []string, edsName string) *api_v2.Cluster {
 
 	grpcServices := make([]*core.GrpcService, 0)
-	grpcServices = append(grpcServices, grpcService)
+
+	for _, cluster := range edsCluster {
+		// grpc 服务地址， envoy 中配置的 cluster，用于发现 endpoints
+		grpcService := &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: cluster,
+				},
+			},
+		}
+		grpcServices = append(grpcServices, grpcService)
+	}
 
 	// eds 发现配置
 	edsClusterConfig := &api_v2.Cluster_EdsClusterConfig{
@@ -191,12 +196,15 @@ func ADD_Cluster_With_Dynamic_Endpoint(n *NodeConfig) {
 				},
 			},
 		},
+		ServiceName: edsName,
 	}
+
+	timeout := 1 * time.Second
 
 	// 通过 eds 发现 endpoint 中的 cluster，类型为 Cluster_EDS
 	cluster := &api_v2.Cluster{
-		Name:        "cluster_with_dynamic_endpoint",
-		AltStatName: "cluster_with_dynamic_endpoint",
+		Name:        name,
+		AltStatName: name,
 		ClusterDiscoveryType: &api_v2.Cluster_Type{
 			Type: api_v2.Cluster_EDS,
 		},
@@ -205,10 +213,10 @@ func ADD_Cluster_With_Dynamic_Endpoint(n *NodeConfig) {
 		LbPolicy:         api_v2.Cluster_ROUND_ROBIN,
 	}
 
-	n.clusters = append(n.clusters, cluster)
+	return cluster
 }
 
-func ADD_Listener_With_Static_Route(n *NodeConfig) {
+func Listener_STATIC(name string, port uint32, host, prefix, toCluster string) *api_v2.Listener {
 
 	// listener 主要由 监听地址 和 多个 filter 组成
 	// 其中 filter 是最复杂的部分，它由多条 filter 链组成
@@ -223,7 +231,7 @@ func ADD_Listener_With_Static_Route(n *NodeConfig) {
 				Protocol: core.TCP,
 				Address:  "0.0.0.0",
 				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: 9000,
+					PortValue: port,
 				},
 			},
 		},
@@ -233,7 +241,7 @@ func ADD_Listener_With_Static_Route(n *NodeConfig) {
 	rt := &route.Route{
 		Match: &route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_Prefix{
-				Prefix: "/",
+				Prefix: prefix,
 			},
 			CaseSensitive: &proto_type.BoolValue{
 				Value: false,
@@ -242,10 +250,10 @@ func ADD_Listener_With_Static_Route(n *NodeConfig) {
 		Action: &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{
-					Cluster: "cluster_with_static_endpoint", //转发到这个cluster
+					Cluster: toCluster, //转发到这个cluster
 				},
 				HostRewriteSpecifier: &route.RouteAction_HostRewrite{
-					HostRewrite: "webshell.com",
+					HostRewrite: host,
 				},
 			},
 		},
@@ -258,7 +266,7 @@ func ADD_Listener_With_Static_Route(n *NodeConfig) {
 	virtualHost := &route.VirtualHost{
 		Name: "local",
 		Domains: []string{
-			"webshell.com",
+			host,
 		},
 		Routes: routes,
 	}
@@ -276,7 +284,7 @@ func ADD_Listener_With_Static_Route(n *NodeConfig) {
 	http_filter_router, err := util.MessageToStruct(http_filter_router_)
 	if err != nil {
 		glog.Error(err)
-		return
+		return nil
 	}
 
 	httpFilter := &http_conn_manager.HttpFilter{
@@ -305,7 +313,7 @@ func ADD_Listener_With_Static_Route(n *NodeConfig) {
 	listen_filter_http_conn, err := util.MessageToStruct(listen_filter_http_conn_)
 	if err != nil {
 		glog.Error(err)
-		return
+		return nil
 	}
 
 	// listen_filter 被纳入最终的 filter
@@ -328,20 +336,19 @@ func ADD_Listener_With_Static_Route(n *NodeConfig) {
 
 	// 一个 listener
 	lis := &api_v2.Listener{
-		Name:         "listener_with_static_route_port_9000",
+		Name:         name,
 		Address:      address,
 		FilterChains: filterChains,
 	}
 
-	n.listeners = append(n.listeners, lis)
+	return lis
 }
 
-func ADD_Listener_With_Dynamic_Route(n *NodeConfig) {
-
+func Route(name, host, prefix, toCluster string) *api_v2.RouteConfiguration {
 	rt := &route.Route{
 		Match: &route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_Prefix{
-				Prefix: "/",
+				Prefix: prefix,
 			},
 			CaseSensitive: &proto_type.BoolValue{
 				Value: false,
@@ -350,10 +357,10 @@ func ADD_Listener_With_Dynamic_Route(n *NodeConfig) {
 		Action: &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{
-					Cluster: "cluster_with_dynamic_endpoint",
+					Cluster: toCluster,
 				},
 				HostRewriteSpecifier: &route.RouteAction_HostRewrite{
-					HostRewrite: "webshell.com",
+					HostRewrite: host,
 				},
 			},
 		},
@@ -365,7 +372,7 @@ func ADD_Listener_With_Dynamic_Route(n *NodeConfig) {
 	virtualHost := &route.VirtualHost{
 		Name: "local",
 		Domains: []string{
-			"webshell.com",
+			host,
 		},
 		Routes: routes,
 	}
@@ -374,11 +381,27 @@ func ADD_Listener_With_Dynamic_Route(n *NodeConfig) {
 	virtualHosts = append(virtualHosts, virtualHost)
 
 	routeConfig := &api_v2.RouteConfiguration{
-		Name:         "dynamic_route",
+		Name:         name,
 		VirtualHosts: virtualHosts,
 	}
 
-	n.routes = append(n.routes, routeConfig)
+	return routeConfig
+}
+
+func Listener_RDS(name string, port uint32, routeName string, rdsCluster []string) *api_v2.Listener {
+
+	grpcServices := make([]*core.GrpcService, 0)
+	for _, cluster := range rdsCluster {
+		// grpc 服务地址在 envoy 中配置的 cluster，用于发现 endpoints
+		grpcService := &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: cluster,
+				},
+			},
+		}
+		grpcServices = append(grpcServices, grpcService)
+	}
 
 	http_filter_router_ := &http_router.Router{
 		DynamicStats: &proto_type.BoolValue{
@@ -389,27 +412,19 @@ func ADD_Listener_With_Dynamic_Route(n *NodeConfig) {
 	http_filter_router, err := util.MessageToStruct(http_filter_router_)
 	if err != nil {
 		glog.Error(err)
-		return
+		return nil
 	}
 
 	listen_filter_http_conn_ := &http_conn_manager.HttpConnectionManager{
 		StatPrefix: "ingress_http",
 		RouteSpecifier: &http_conn_manager.HttpConnectionManager_Rds{
 			Rds: &http_conn_manager.Rds{
-				RouteConfigName: "dynamic_route", //绑定的RDS
+				RouteConfigName: routeName, //绑定的RDS
 				ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
-							ApiType: core.ApiConfigSource_GRPC,
-							GrpcServices: []*core.GrpcService{
-								&core.GrpcService{
-									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-											ClusterName: "xds_cluster",
-										},
-									},
-								},
-							},
+							ApiType:      core.ApiConfigSource_GRPC,
+							GrpcServices: grpcServices,
 						},
 					},
 				},
@@ -424,21 +439,22 @@ func ADD_Listener_With_Dynamic_Route(n *NodeConfig) {
 			},
 		},
 	}
+
 	listen_filter_http_conn, err := util.MessageToStruct(listen_filter_http_conn_)
 	if err != nil {
 		glog.Error(err)
-		return
+		return nil
 	}
 
-	listener := &api_v2.Listener{
-		Name: "listener_with_dynamic_route_port_9001",
+	lis := &api_v2.Listener{
+		Name: name,
 		Address: &core.Address{
 			Address: &core.Address_SocketAddress{
 				SocketAddress: &core.SocketAddress{
 					Protocol: core.TCP,
 					Address:  "0.0.0.0",
 					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: 9001,
+						PortValue: port,
 					},
 				},
 			},
@@ -457,132 +473,35 @@ func ADD_Listener_With_Dynamic_Route(n *NodeConfig) {
 		},
 	}
 
-	n.listeners = append(n.listeners, listener)
+	return lis
 }
 
-func ADD_Cluster_With_ADS_Endpoint(n *NodeConfig) {
+func Cluster_ADS(name string) *api_v2.Cluster {
 
 	timeout := 1 * time.Second
 
-	socketAddress := &core.SocketAddress{
-		Protocol: core.TCP,
-		Address:  "192.16.129.26",
-		PortSpecifier: &core.SocketAddress_PortValue{
-			PortValue: 80,
+	edsConfig := &core.ConfigSource{
+		ConfigSourceSpecifier: &core.ConfigSource_Ads{
+			Ads: &core.AggregatedConfigSource{}, //使用ADS
 		},
 	}
-
-	address := &core.Address{
-		Address: &core.Address_SocketAddress{
-			SocketAddress: socketAddress,
-		},
-	}
-
-	hostIdentifier := &endpoint.LbEndpoint_Endpoint{
-		Endpoint: &endpoint.Endpoint{
-			Address: address,
-		},
-	}
-
-	lbEndpoint := &endpoint.LbEndpoint{
-		HostIdentifier: hostIdentifier,
-	}
-
-	lbEndpoints := make([]*endpoint.LbEndpoint, 0)
-	lbEndpoints = append(lbEndpoints, lbEndpoint)
-
-	localityLbEndpoints := &endpoint.LocalityLbEndpoints{
-		LbEndpoints: lbEndpoints,
-	}
-
-	endpoints := make([]*endpoint.LocalityLbEndpoints, 0)
-	endpoints = append(endpoints, localityLbEndpoints)
-
-	point := &api_v2.ClusterLoadAssignment{
-		ClusterName: "ads_endpoint",
-		Endpoints:   endpoints,
-		Policy: &api_v2.ClusterLoadAssignment_Policy{
-			DropOverloads: []*api_v2.ClusterLoadAssignment_Policy_DropOverload{
-				&api_v2.ClusterLoadAssignment_Policy_DropOverload{
-					Category: "drop_policy1",
-					DropPercentage: &envoy_type.FractionalPercent{
-						Numerator:   3,
-						Denominator: envoy_type.FractionalPercent_HUNDRED,
-					},
-				},
-			},
-			OverprovisioningFactor: &proto_type.UInt32Value{
-				Value: 140,
-			},
-		},
-	}
-
-	n.endpoints = append(n.endpoints, point)
 
 	cluster := &api_v2.Cluster{
-		Name:           "cluster_with_ads_endpoint",
-		AltStatName:    "cluster_with_ads_endpoint",
+		Name:           name,
+		AltStatName:    name,
 		ConnectTimeout: &timeout,
 		ClusterDiscoveryType: &api_v2.Cluster_Type{
 			Type: api_v2.Cluster_EDS,
 		},
 		LbPolicy: api_v2.Cluster_ROUND_ROBIN,
 		EdsClusterConfig: &api_v2.Cluster_EdsClusterConfig{
-			EdsConfig: &core.ConfigSource{
-				ConfigSourceSpecifier: &core.ConfigSource_Ads{
-					Ads: &core.AggregatedConfigSource{}, //使用ADS
-				},
-			},
-			ServiceName: "ads_endpoint", //与endpoint中的ClusterName对应。
+			EdsConfig: edsConfig,
 		},
 	}
-
-	n.clusters = append(n.clusters, cluster)
+	return cluster
 }
 
-func ADD_Listener_With_ADS_Route(n *NodeConfig) {
-
-	r := &route.Route{
-		Match: &route.RouteMatch{
-			PathSpecifier: &route.RouteMatch_Prefix{
-				Prefix: "/",
-			},
-			CaseSensitive: &proto_type.BoolValue{
-				Value: false,
-			},
-		},
-		Action: &route.Route_Route{
-			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{
-					Cluster: "cluster_with_ads_endpoint",
-				},
-				HostRewriteSpecifier: &route.RouteAction_HostRewrite{
-					HostRewrite: "webshell.com",
-				},
-			},
-		},
-	}
-
-	routes := make([]*route.Route, 0)
-	routes = append(routes, r)
-
-	virtualHost := &route.VirtualHost{
-		Name: "local",
-		Domains: []string{
-			"ads.webshell.com",
-		},
-		Routes: routes,
-	}
-
-	virtualHosts := make([]*route.VirtualHost, 0)
-	virtualHosts = append(virtualHosts, virtualHost)
-
-	routeConfig := &api_v2.RouteConfiguration{
-		Name:         "ads_route",
-		VirtualHosts: virtualHosts,
-	}
-
-	n.routes = append(n.routes, routeConfig)
+func Listener_ADS(name string, port uint32, routeName string) *api_v2.Listener {
 
 	http_filter_router_ := &http_router.Router{
 		DynamicStats: &proto_type.BoolValue{
@@ -593,7 +512,7 @@ func ADD_Listener_With_ADS_Route(n *NodeConfig) {
 	http_filter_router, err := util.MessageToStruct(http_filter_router_)
 	if err != nil {
 		glog.Error(err)
-		return
+		return nil
 	}
 
 	httpFilter := &http_conn_manager.HttpFilter{
@@ -610,7 +529,7 @@ func ADD_Listener_With_ADS_Route(n *NodeConfig) {
 		StatPrefix: "ingress_http",
 		RouteSpecifier: &http_conn_manager.HttpConnectionManager_Rds{
 			Rds: &http_conn_manager.Rds{
-				RouteConfigName: "ads_route",
+				RouteConfigName: routeName,
 				ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{}, //使用ADS
@@ -624,7 +543,7 @@ func ADD_Listener_With_ADS_Route(n *NodeConfig) {
 	listen_filter_http_conn, err := util.MessageToStruct(listen_filter_http_conn_)
 	if err != nil {
 		glog.Error(err)
-		return
+		return nil
 	}
 
 	filter := &listener.Filter{
@@ -648,7 +567,7 @@ func ADD_Listener_With_ADS_Route(n *NodeConfig) {
 		Protocol: core.TCP,
 		Address:  "0.0.0.0",
 		PortSpecifier: &core.SocketAddress_PortValue{
-			PortValue: 9002,
+			PortValue: port,
 		},
 	}
 
@@ -659,12 +578,12 @@ func ADD_Listener_With_ADS_Route(n *NodeConfig) {
 	}
 
 	lis := &api_v2.Listener{
-		Name:         "listener_with_dynamic_route_port_9002",
+		Name:         name,
 		Address:      addr,
 		FilterChains: filterChains,
 	}
 
-	n.listeners = append(n.listeners, lis)
+	return lis
 }
 
 func Update_SnapshotCache(s cache.SnapshotCache, n *NodeConfig, version string) {
@@ -707,41 +626,143 @@ func main() {
 
 	input := ""
 
-	fmt.Printf("Enter to update version 1: ADD_Cluster_With_Static_Endpoint")
-	_, _ = fmt.Scanf("\n", &input)
-	ADD_Cluster_With_Static_Endpoint(node_config)
-	Update_SnapshotCache(snapshotCache, node_config, "1")
-	fmt.Printf("ok")
+	{
+		clusterName := "Cluster_With_Static_Endpoint"
+		fmt.Printf("Enter to update version 1: %s", clusterName)
+		_, _ = fmt.Scanf("\n", &input)
 
-	fmt.Printf("\nEnter to update version 2: ADD_Cluster_With_Dynamic_Endpoint")
-	_, _ = fmt.Scanf("\n", &input)
-	ADD_Cluster_With_Dynamic_Endpoint(node_config)
-	Update_SnapshotCache(snapshotCache, node_config, "2")
-	fmt.Printf("ok")
+		var addrs []ADDR
+		addrs = append(addrs, ADDR{
+			Address: "127.0.0.1",
+			Port:    8081,
+		})
+		cluster := Cluster_STATIC(clusterName, addrs)
+		node_config.clusters = append(node_config.clusters, cluster)
+		Update_SnapshotCache(snapshotCache, node_config, "1")
+		fmt.Printf("ok")
+	}
 
-	fmt.Printf("\nEnter to update version 3: ADD_Cluster_With_ADS_Endpoint")
-	_, _ = fmt.Scanf("\n", &input)
-	ADD_Cluster_With_ADS_Endpoint(node_config)
-	Update_SnapshotCache(snapshotCache, node_config, "3")
-	fmt.Printf("ok")
+	{
+		clusterName := "Cluster_With_Dynamic_Endpoint"
 
-	fmt.Printf("\nEnter to update version 4: ADD_Listener_With_Static_Route")
-	_, _ = fmt.Scanf("\n", &input)
-	ADD_Listener_With_Static_Route(node_config)
-	Update_SnapshotCache(snapshotCache, node_config, "4")
-	fmt.Printf("ok")
+		fmt.Printf("\nEnter to update version 2: %s", clusterName)
+		_, _ = fmt.Scanf("\n", &input)
 
-	fmt.Printf("\nEnter to update version 5: ADD_Listener_With_Dynamic_Route")
-	_, _ = fmt.Scanf("\n", &input)
-	ADD_Listener_With_Dynamic_Route(node_config)
-	Update_SnapshotCache(snapshotCache, node_config, "5")
-	fmt.Printf("ok")
+		var addrs []ADDR
+		addrs = append(addrs, ADDR{
+			Address: "127.0.0.1",
+			Port:    8082,
+		})
 
-	fmt.Printf("\nEnter to update version 6: ADD_Listener_With_ADS_Route")
-	_, _ = fmt.Scanf("\n", &input)
-	ADD_Listener_With_ADS_Route(node_config)
-	Update_SnapshotCache(snapshotCache, node_config, "6")
-	fmt.Printf("ok")
+		point := EDS(clusterName, addrs)
+		node_config.endpoints = append(node_config.endpoints, point)
+
+		var edsCluster []string
+		edsCluster = append(edsCluster, "xds_cluster") //静态的配置的 cluster
+
+		edsName := clusterName
+		cluster := Cluster_EDS(clusterName, edsCluster, edsName)
+		node_config.clusters = append(node_config.clusters, cluster)
+
+		Update_SnapshotCache(snapshotCache, node_config, "2")
+		fmt.Printf("ok")
+	}
+
+	{
+
+		clusterName := "Cluster_With_ADS_Endpoint"
+		fmt.Printf("\nEnter to update version 3: %s", clusterName)
+		_, _ = fmt.Scanf("\n", &input)
+
+		var addrs []ADDR
+		addrs = append(addrs, ADDR{
+			Address: "127.0.0.1",
+			Port:    8083,
+		})
+
+		edsName := clusterName
+		point := EDS(edsName, addrs)
+		node_config.endpoints = append(node_config.endpoints, point)
+
+		cluster := Cluster_ADS("Cluster_With_ADS_Endpoint")
+		node_config.clusters = append(node_config.clusters, cluster)
+
+		Update_SnapshotCache(snapshotCache, node_config, "3")
+		fmt.Printf("ok")
+	}
+
+	{
+		listenerName := "Listener_With_Static_Route"
+		fmt.Printf("\nEnter to update version 4: %s", listenerName)
+		_, _ = fmt.Scanf("\n", &input)
+
+		clusterName := "Listener_With_Static_Route_Target_Cluster"
+		var addrs []ADDR
+		addrs = append(addrs, ADDR{
+			Address: "127.0.0.1",
+			Port:    8084,
+		})
+		cluster := Cluster_STATIC(clusterName, addrs)
+		node_config.clusters = append(node_config.clusters, cluster)
+
+		lis := Listener_STATIC(listenerName, 84, "webshell.com", "/abc", clusterName)
+		node_config.listeners = append(node_config.listeners, lis)
+
+		Update_SnapshotCache(snapshotCache, node_config, "4")
+		fmt.Printf("ok")
+	}
+
+	{
+		listenerName := "Listener_With_Dynamic_Route"
+		fmt.Printf("\nEnter to update version 5: %s", listenerName)
+		_, _ = fmt.Scanf("\n", &input)
+
+		clusterName := "Listener_With_Dynamic_Route_Target_Cluster"
+		var addrs []ADDR
+		addrs = append(addrs, ADDR{
+			Address: "127.0.0.1",
+			Port:    8085,
+		})
+		cluster := Cluster_STATIC(clusterName, addrs)
+		node_config.clusters = append(node_config.clusters, cluster)
+
+		routeName := "Listener_With_Dynamic_Route_Route"
+		r := Route(routeName, "webshell.com", "/123", clusterName)
+		node_config.routes = append(node_config.routes, r)
+
+		var rdsCluster []string
+		rdsCluster = append(rdsCluster, "xds_cluster") //静态的配置的 cluster
+		lis := Listener_RDS(listenerName, 85, routeName, rdsCluster)
+		node_config.listeners = append(node_config.listeners, lis)
+
+		Update_SnapshotCache(snapshotCache, node_config, "5")
+		fmt.Printf("ok")
+	}
+
+	{
+		listenerName := "Listener_With_ADS_Route"
+		fmt.Printf("\nEnter to update version 6: %s", listenerName)
+		_, _ = fmt.Scanf("\n", &input)
+
+		clusterName := "Listener_With_ADS_Route_Target_Cluster"
+		var addrs []ADDR
+		addrs = append(addrs, ADDR{
+			Address: "127.0.0.1",
+			Port:    8086,
+		})
+		cluster := Cluster_STATIC(clusterName, addrs)
+		node_config.clusters = append(node_config.clusters, cluster)
+
+		routeName := "Listener_With_ADS_Route_Route"
+		r := Route(routeName, "webshell.com", "/a1b", clusterName)
+		node_config.routes = append(node_config.routes, r)
+
+		lis := Listener_ADS(listenerName, 86, routeName)
+		node_config.listeners = append(node_config.listeners, lis)
+
+		Update_SnapshotCache(snapshotCache, node_config, "6")
+		fmt.Printf("ok")
+	}
 
 	fmt.Printf("\nEnter to exit: ")
 	_, _ = fmt.Scanf("\n", &input)

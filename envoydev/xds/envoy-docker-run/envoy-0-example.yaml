@@ -1,0 +1,97 @@
+node:
+  id: "envoy-64.58"
+  cluster: "test"
+#runtime:
+#  symlink_root: /srv/runtime/current
+#  subdirectory: envoy
+#  override_subdirectory: envoy_override
+watchdog: 
+  miss_timeout: 0.2s
+  megamiss_timeout: 1s
+  kill_timeout: 0s
+  multikill_timeout: 0s
+flags_path: /etc/envoy/flags/
+stats_flush_interval: 5s
+stats_config: 
+  use_all_default_tags: true
+stats_sinks: 
+  name: envoy.stat_sinks.hystrix
+  config: 
+    num_buckets: 10
+admin:
+  access_log_path: /var/log/envoy/admin_access.log
+  profile_path: /var/log/envoy/envoy.prof
+  address:
+    socket_address:
+      protocol: TCP
+      address: 0.0.0.0
+      port_value: 9901
+dynamic_resources:
+  ads_config:
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: ads_cluster
+  cds_config: {ads: {}}
+  lds_config: {ads: {}}
+static_resources:
+  clusters:
+  - name: ads_cluster
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: ads_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 127.0.0.1
+                port_value: 5678
+  - name: xds_cluster
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: xds_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 127.0.0.1
+                port_value: 5678
+  - name: dns_google 
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: dns_google
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 8.8.8.8 
+                port_value: 53
+  - name: service_baidu
+    connect_timeout: 0.25s
+    type: LOGICAL_DNS
+    # Comment out the following line to test on v6 networks
+    dns_lookup_family: V4_ONLY
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: service_baidu
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: www.baidu.com
+                port_value: 443
+    tls_context:
+      sni: www.baidu.com
