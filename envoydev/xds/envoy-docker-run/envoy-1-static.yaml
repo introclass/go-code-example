@@ -33,7 +33,7 @@ static_resources:
       socket_address:
         protocol: TCP
         address: 0.0.0.0
-        port_value: 9000
+        port_value: 80
     filter_chains:
     - filters:
       - name: envoy.http_connection_manager
@@ -44,13 +44,13 @@ static_resources:
             name: local_route
             virtual_hosts:
             - name: local_service
-              domains: ["webshell.com"]
+              domains: ["echo.com"]
               routes:
               - match:
                   prefix: "/"
                 route:
-                  host_rewrite: webshell.com
-                  cluster: service_webshell
+                  host_rewrite: echo.com
+                  cluster: service_echo
           http_filters:
           - name: envoy.router
             config: 
@@ -60,7 +60,7 @@ static_resources:
       socket_address:
         protocol: TCP
         address: 0.0.0.0
-        port_value: 10000
+        port_value: 81
     filter_chains:
     - filters:
       - name: envoy.http_connection_manager
@@ -81,13 +81,13 @@ static_resources:
           http_filters:
           - name: envoy.router
   clusters:
-  - name: service_webshell
+  - name: service_echo
     connect_timeout: 0.25s
     type: static
     lb_policy: ROUND_ROBIN
     hosts:
       - socket_address:
-          address:  172.16.128.171
+          address:  172.17.0.3
           port_value: 8080
   - name: service_baidu
     connect_timeout: 0.25s
