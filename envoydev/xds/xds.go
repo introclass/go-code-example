@@ -1,4 +1,4 @@
-// Create: 2018/12/29 18:32:00 Change: 2018/12/29 18:32:00
+// Create: 2018/12/29 18:32:00 Change: 2019/09/02 17:44:34
 // FileName: main.go
 // Copyright (C) 2018 lijiaocn <lijiaocn@foxmail.com>
 //
@@ -669,7 +669,6 @@ func main() {
 	}
 
 	{
-
 		clusterName := "Cluster_With_ADS_Endpoint"
 		fmt.Printf("\nEnter to update version 3: %s", clusterName)
 		_, _ = fmt.Scanf("\n", &input)
@@ -699,13 +698,13 @@ func main() {
 		clusterName := "Listener_With_Static_Route_Target_Cluster"
 		var addrs []ADDR
 		addrs = append(addrs, ADDR{
-			Address: "127.0.0.1",
-			Port:    8084,
+			Address: "172.17.0.2",
+			Port:    8080,
 		})
 		cluster := Cluster_STATIC(clusterName, addrs)
 		node_config.clusters = append(node_config.clusters, cluster)
 
-		lis := Listener_STATIC(listenerName, 84, "webshell.com", "/abc", clusterName)
+		lis := Listener_STATIC(listenerName, 84, "echo.example", "/abc", clusterName)
 		node_config.listeners = append(node_config.listeners, lis)
 
 		Update_SnapshotCache(snapshotCache, node_config, "4")
@@ -720,14 +719,14 @@ func main() {
 		clusterName := "Listener_With_Dynamic_Route_Target_Cluster"
 		var addrs []ADDR
 		addrs = append(addrs, ADDR{
-			Address: "127.0.0.1",
-			Port:    8085,
+			Address: "172.17.0.2",
+			Port:    8080,
 		})
 		cluster := Cluster_STATIC(clusterName, addrs)
 		node_config.clusters = append(node_config.clusters, cluster)
 
 		routeName := "Listener_With_Dynamic_Route_Route"
-		r := Route(routeName, "webshell.com", "/123", clusterName)
+		r := Route(routeName, "echo.example", "/123", clusterName)
 		node_config.routes = append(node_config.routes, r)
 
 		var rdsCluster []string
@@ -747,14 +746,14 @@ func main() {
 		clusterName := "Listener_With_ADS_Route_Target_Cluster"
 		var addrs []ADDR
 		addrs = append(addrs, ADDR{
-			Address: "127.0.0.1",
-			Port:    8086,
+			Address: "172.17.0.2",
+			Port:    8080,
 		})
 		cluster := Cluster_STATIC(clusterName, addrs)
 		node_config.clusters = append(node_config.clusters, cluster)
 
 		routeName := "Listener_With_ADS_Route_Route"
-		r := Route(routeName, "webshell.com", "/a1b", clusterName)
+		r := Route(routeName, "echo.example", "/a1b", clusterName)
 		node_config.routes = append(node_config.routes, r)
 
 		lis := Listener_ADS(listenerName, 86, routeName)

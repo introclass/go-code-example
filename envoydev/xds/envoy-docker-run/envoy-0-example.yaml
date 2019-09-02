@@ -26,15 +26,33 @@ admin:
       protocol: TCP
       address: 0.0.0.0
       port_value: 9901
-dynamic_resources:
-  ads_config:
-    api_type: GRPC
-    grpc_services:
-      envoy_grpc:
-        cluster_name: ads_cluster
-  cds_config: {ads: {}}
-  lds_config: {ads: {}}
 static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address:
+        protocol: TCP
+        address: 0.0.0.0
+        port_value: 80
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
+          stat_prefix: ingress_http
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: "/"
+                route:
+                  host_rewrite: www.baidu.com
+                  cluster: service_echo
+          http_filters:
+          - name: envoy.router
   clusters:
   - name: ads_cluster
     connect_timeout: 0.25s
@@ -64,20 +82,20 @@ static_resources:
               socket_address:
                 address: 127.0.0.1
                 port_value: 5678
-  - name: dns_google 
+  - name: service_echo
     connect_timeout: 0.25s
     type: STATIC
     lb_policy: ROUND_ROBIN
-    http2_protocol_options: {}
+    #http2_protocol_options: {}
     load_assignment:
-      cluster_name: dns_google
+      cluster_name: service_echo
       endpoints:
       - lb_endpoints:
         - endpoint:
             address:
               socket_address:
-                address: 8.8.8.8 
-                port_value: 53
+                address:  172.17.0.2
+                port_value: 8080
   - name: service_baidu
     connect_timeout: 0.25s
     type: LOGICAL_DNS
