@@ -88,3 +88,5 @@
 [2019-09-02T10:07:47.993Z] "GET / HTTP/1.1" 200 - 0 5233 0 - "172.17.0.1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36" "-" "127.0.0.1:9901" "-"
 [2019-09-02T10:07:49.564Z] "GET /config_dump HTTP/1.1" 200 - 0 10791 2 - "172.17.0.1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36" "-" "127.0.0.1:9901" "-"
 [2019-09-02T10:11:29.730Z] "GET /config_dump HTTP/1.1" 200 - 0 12932 1 - "172.17.0.1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36" "-" "127.0.0.1:9901" "-"
+[2019-09-03T07:05:47.502Z] "GET /clusters HTTP/1.1" 200 - 0 5909 6 - "172.17.0.1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36" "-" "127.0.0.1:9901" "-"
+[2019-09-03T07:06:02.164Z] "GET /config_dump HTTP/1.1" 200 - 0 10468 11 - "172.17.0.1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36" "-" "127.0.0.1:9901" "-"
