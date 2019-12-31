@@ -27,3 +27,11 @@ func BenchmarkSumArray(b *testing.B) {
 		SumArray(arrays)
 	}
 }
+
+func BenchmarkSumArrayP(b *testing.B) {
+	arrays := [10]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	arraysp := &arrays
+	for i := 0; i < b.N; i++ {
+		SumArrayP(arraysp)
+	}
+}
