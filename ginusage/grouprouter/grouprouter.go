@@ -1,5 +1,5 @@
 // Create: 2019/07/22 10:50:00 Change: 2019/07/22 11:05:15
-// FileName: main.go
+// FileName: waitgroup.go
 // Copyright (C) 2019 lijiaocn <lijiaocn@foxmail.com> wechat:lijiaocn
 //
 // Distributed under terms of the GPL license.

@@ -1,5 +1,5 @@
 // Create: 2018/12/29 18:32:00 Change: 2019/09/02 17:44:34
-// FileName: main.go
+// FileName: waitgroup.go
 // Copyright (C) 2018 lijiaocn <lijiaocn@foxmail.com>
 //
 // Distributed under terms of the GPL license.
