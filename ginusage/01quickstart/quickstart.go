@@ -1,5 +1,5 @@
 // Create: 2019/07/19 17:46:00 Change: 2019/07/19 17:47:00
-// FileName: modelbind.go
+// FileName: json_and_others.go
 // Copyright (C) 2019 lijiaocn <lijiaocn@foxmail.com> wechat:lijiaocn
 //
 // Distributed under terms of the GPL license.
@@ -7,9 +7,10 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {

@@ -5,13 +5,41 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Login struct {
 	User     string `form:"user" json:"user" xml:"user" binding:"required"`
 	Password string `form:"password" json:"password" xml:"password" binding:"required" `
+}
+
+func bindJSON(c *gin.Context) {
+	var login Login
+	if err := c.ShouldBindJSON(&login); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, login)
+}
+
+func bindXML(c *gin.Context) {
+	var login Login
+	if err := c.ShouldBindXML(&login); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, login)
+}
+
+func bindALL(c *gin.Context) {
+	var login Login
+	if err := c.ShouldBind(&login); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, login)
 }
 
 func main() {
@@ -22,28 +50,13 @@ func main() {
 	// c.ShouldBind()       解析 GET 和 POST 数据
 	// c.ShouldBindUri()    解析路径参数
 	// c.ShouldBindHeader() 解析请求头
-	//
 
 	// curl -X POST 127.0.0.1:8080/loginjson -d '{"user": "lijiao", "password":"123"}'
-	router.POST("/loginjson", func(c *gin.Context) {
-		var login Login
-		if err := c.ShouldBindJSON(&login); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, login)
-	})
+	router.POST("/loginjson", bindJSON)
 
 	// curl -X POST 127.0.0.1:8080/loginxml \
 	//    -d '<?xml version="1.0" encoding="UTF-8"?><root><user>user</user><password>123</password> </root>'
-	router.POST("/loginxml", func(c *gin.Context) {
-		var login Login
-		if err := c.ShouldBindXML(&login); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, login)
-	})
+	router.POST("/loginxml", bindXML)
 
 	// c.ShouldBind() 根据 content-type 选择合适的反序列化方式
 	// curl -X POST 127.0.0.1:8080/loginform -H 'content-type: application/xml' \
@@ -51,14 +64,7 @@ func main() {
 	// curl -X POST 127.0.0.1:8080/loginform -H 'content-type: application/json' \
 	//      -d '{"user": "lijiao", "password":"123"}'
 	// curl -X POST 127.0.0.1:8080/loginform -d "user=lijiao&password=123"
-	router.POST("/loginform", func(c *gin.Context) {
-		var login Login
-		if err := c.ShouldBind(&login); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, login)
-	})
+	router.POST("/loginform", bindALL)
 
 	router.Run(":8080")
 }

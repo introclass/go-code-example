@@ -19,5 +19,16 @@ func main() {
 	router.PATCH("/patch", echo)
 	router.HEAD("/head", echo)
 	router.OPTIONS("/option", echo)
+
+	groupv1 := router.Group("/v1")
+	{
+		groupv1.GET("/hello", echo)
+	}
+
+	groupv2 := router.Group("/v1")
+	{
+		groupv2.GET("/hello", echo)
+	}
+
 	router.Run()
 }

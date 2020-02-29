@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/introclass/go-code-example/syntax/pkgexported/pkg1"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 func CustormMiddleWare() gin.HandlerFunc {
@@ -25,7 +25,7 @@ func main() {
 	router.Use(gin.Logger())
 	router.Use(CustormMiddleWare())
 
-	//全局中间价：如果发生 panic 恢复，并回复 500
+	//全局中间件：如果发生 panic 恢复，并回复 500
 	router.Use(gin.Recovery())
 
 	//作用于当前路由的中间件

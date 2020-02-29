@@ -13,6 +13,7 @@ func main() {
 	// 准备数据库
 	// create database gormdb;
 	// create user 'gorm'@'%'  identified by 'passwd123';
+	// alter user 'gorm'@'%' identified with mysql_native_password by 'password123';
 	// grant all on gormdb.* to 'gorm'@'%';
 	// flush privileges;
 

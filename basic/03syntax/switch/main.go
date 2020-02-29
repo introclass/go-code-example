@@ -1,5 +1,5 @@
 // Create: 2019/07/03 19:30:00 Change: 2019/07/08 17:48:03
-// FileName: modelbind.go
+// FileName: json_and_others.go
 // Copyright (C) 2019 lijiaocn <lijiaocn@foxmail.com> wechat:lijiaocn
 //
 // Distributed under terms of the GPL license.
