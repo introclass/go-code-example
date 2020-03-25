@@ -3,17 +3,15 @@ package main
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 func main() {
 	config := rest.Config{
 		Host:            "https://10.39.0.105:6443",
 		APIPath:         "/",
-		Prefix:          "",
 		BearerToken:     "bf8cb8725efab8c4",
 		TLSClientConfig: rest.TLSClientConfig{Insecure: true},
 	}
