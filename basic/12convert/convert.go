@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -87,7 +88,24 @@ func Json() {
 	fmt.Println(intlist)
 }
 
+func Json2() {
+	s := Student{
+		Name: "lijiaocn",
+		Attrs: map[int]Attr{
+			0: {Value: "hello1"},
+			1: {Value: "hello2"},
+		},
+	}
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(s); err != nil {
+		log.Panic(err.Error())
+	}
+	fmt.Printf("%s", buf.String())
+}
+
 func main() {
 	Base64Convert()
 	UintAndInt()
+	Json()
+	Json2()
 }
